@@ -1,0 +1,32 @@
+# Production overlay: automatic HTTPS (Let's Encrypt) and custom domains via Caddy.
+#
+#   QRCODE_DOMAIN=qr.example.com docker compose -f docker-compose.yml -f docker/docker-compose.caddy.yml up -d
+#
+# Caddy is free and open source; certificates come from Let's Encrypt at no cost.
+
+services:
+  QRCODE:
+    ports: !reset []
+    environment:
+      QRCODE_BASE_URL: https://${QRCODE_DOMAIN:?set QRCODE_DOMAIN}
+      # Caddy runs on the compose network; trust its X-Forwarded-For header.
+      QRCODE_TRUSTED_PROXIES: 172.16.0.0/12,10.0.0.0/8,192.168.0.0/16
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on: [QRCODE]
+    environment:
+      QRCODE_DOMAIN: ${QRCODE_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  caddy-data:
+  caddy-config:

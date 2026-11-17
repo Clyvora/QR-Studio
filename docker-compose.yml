@@ -1,0 +1,52 @@
+# QRCODE — full production-style stack (PostgreSQL + QRCODE).
+#
+#   docker compose up -d        →  http://localhost
+#
+# Settings can be overridden in a .env file next to this file (see .env.example).
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: QRCODE
+      POSTGRES_USER: QRCODE
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-QRCODE}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U QRCODE -d QRCODE"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # Exposed on localhost only, for `npm run dev` against Postgres.
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  QRCODE:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    image: ${QRCODE_IMAGE:-ghcr.io/Clyvora/QRCODE:latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      QRCODE_DATABASE_URL: postgres://QRCODE:${POSTGRES_PASSWORD:-QRCODE}@postgres:5432/QRCODE?sslmode=disable
+      QRCODE_BASE_URL: ${QRCODE_BASE_URL:-http://localhost}
+      QRCODE_REGISTRATION: ${QRCODE_REGISTRATION:-open}
+      QRCODE_ADMIN_EMAIL: ${QRCODE_ADMIN_EMAIL:-}
+      QRCODE_ADMIN_PASSWORD: ${QRCODE_ADMIN_PASSWORD:-}
+      QRCODE_TRUSTED_PROXIES: ${QRCODE_TRUSTED_PROXIES:-}
+      QRCODE_COUNTRY_HEADER: ${QRCODE_COUNTRY_HEADER:-}
+      QRCODE_SMTP_HOST: ${QRCODE_SMTP_HOST:-}
+      QRCODE_SMTP_PORT: ${QRCODE_SMTP_PORT:-587}
+      QRCODE_SMTP_USERNAME: ${QRCODE_SMTP_USERNAME:-}
+      QRCODE_SMTP_PASSWORD: ${QRCODE_SMTP_PASSWORD:-}
+      QRCODE_SMTP_FROM: ${QRCODE_SMTP_FROM:-}
+    ports:
+      - "${QRCODE_PORT:-80}:8080"
+
+volumes:
+  postgres-data:
